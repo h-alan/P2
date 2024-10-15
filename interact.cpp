@@ -13,7 +13,7 @@
 #include "binhash.hpp"
 
 /* Define this to use the bucketing version of the code */
-/* #define USE_BUCKETING */
+#define USE_BUCKETING
 
 /*@T
  * \subsection{Density computations}
@@ -60,6 +60,24 @@ void compute_density(sim_state_t* s, sim_param_t* params)
     // Accumulate density info
 #ifdef USE_BUCKETING
     /* BEGIN TASK */
+    for (int i = 0; i < n; ++i) {
+        particle_t* pi = s->part + i;
+        unsigned neighborhood[MAX_NBR_BINS];
+        unsigned num_bins = particle_neighborhood(neighborhood, pi, h);
+        pi->rho += (315.0 / 64.0 / M_PI) * s->mass / h3;
+
+        for (unsigned b = 0; b < num_bins; ++b) {
+            unsigned bucket_idx = neighborhood[b];
+            particle_t* pj = hash[bucket_idx];
+
+            while (pj != NULL) {
+                if (pj != pi) {
+                    update_density(pi, pj, h2, C);
+                }
+                pj = pj->next;
+            }
+        }
+    }
     /* END TASK */
 #else
     for (int i = 0; i < n; ++i) {
@@ -151,6 +169,23 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
     // Accumulate forces
 #ifdef USE_BUCKETING
     /* BEGIN TASK */
+    for (int i = 0; i < n; ++i) {
+        particle_t* pi = p + i;
+        unsigned neighborhood[MAX_NBR_BINS];
+        unsigned num_bins = particle_neighborhood(neighborhood, pi, h);
+
+        for (unsigned b = 0; b < num_bins; ++b) {
+            unsigned bucket_idx = neighborhood[b];
+            particle_t* pj = hash[bucket_idx];
+
+            while (pj != NULL) {
+                if (pj != pi) {
+                    update_forces(pi, pj, h2, rho0, C0, Cp, Cv);
+                }
+                pj = pj->next;
+            }
+        }
+    }
     /* END TASK */
 #else
     for (int i = 0; i < n; ++i) {

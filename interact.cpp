@@ -54,22 +54,34 @@ void compute_density(sim_state_t* s, sim_param_t* params)
     float C  = ( 315.0/64.0/M_PI ) * s->mass / h9;
 
     // Clear densities
+    #pragma omp parallel for
     for (int i = 0; i < n; ++i)
         p[i].rho = 0;
 
     // Accumulate density info
 #ifdef USE_BUCKETING
     /* BEGIN TASK */
+    #pragma omp parallel for
     for (int i = 0; i < n; ++i) {
         particle_t* pi = s->part + i;
         unsigned neighborhood[MAX_NBR_BINS];
         unsigned num_buckets = particle_neighborhood(neighborhood, pi, h);
+
+        omp_set_lock(&(pi->lock));
         pi->rho += (315.0 / 64.0 / M_PI) * s->mass / h3;
+        omp_unset_lock(&(pi->lock));
 
         // Update for particles in own bucket
         particle_t* pb = pi->next;
         while (pb != NULL) {
+            omp_set_lock(&(pi->lock));
+            omp_set_lock(&(pb->lock));
+
             update_density(pi, pb, h2, C);
+
+            omp_unset_lock(&(pi->lock));
+            omp_unset_lock(&(pb->lock));
+
             pb = pb->next;
         }
 
@@ -82,7 +94,14 @@ void compute_density(sim_state_t* s, sim_param_t* params)
                 particle_t* pj = hash[bucket];
 
                 while (pj != NULL) {
+                    omp_set_lock(&(pi->lock));
+                    omp_set_lock(&(pj->lock));
+
                     update_density(pi, pj, h2, C);
+
+                    omp_unset_lock(&(pi->lock));
+                    omp_unset_lock(&(pj->lock));
+
                     pj = pj->next;
                 }
             }
@@ -168,6 +187,7 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
     compute_density(state, params);
 
     // Start with gravity and surface forces
+    #pragma omp parallel for
     for (int i = 0; i < n; ++i)
         vec3_set(p[i].a,  0, -g, 0);
 
@@ -179,6 +199,7 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
     // Accumulate forces
 #ifdef USE_BUCKETING
     /* BEGIN TASK */
+    #pragma omp parallel for
     for (int i = 0; i < n; ++i) {
         particle_t* pi = p + i;
         unsigned neighborhood[MAX_NBR_BINS];
@@ -188,7 +209,14 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
         // Update for particles in own bucket
         particle_t* pb = pi->next;
         while (pb != NULL) {
+            omp_set_lock(&(pi->lock));
+            omp_set_lock(&(pb->lock));
+
             update_forces(pi, pb, h2, rho0, C0, Cp, Cv);
+
+            omp_unset_lock(&(pi->lock));
+            omp_unset_lock(&(pb->lock));
+
             pb = pb->next;
         }
 
@@ -199,7 +227,14 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
                 particle_t* pj = hash[bucket];
 
                 while (pj != NULL) {
+                    omp_set_lock(&(pi->lock));
+                    omp_set_lock(&(pj->lock));
+
                     update_forces(pi, pj, h2, rho0, C0, Cp, Cv);
+
+                    omp_unset_lock(&(pi->lock));
+                    omp_unset_lock(&(pj->lock));
+
                     pj = pj->next;
                 }
             }

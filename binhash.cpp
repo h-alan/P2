@@ -55,7 +55,7 @@ unsigned particle_neighborhood(unsigned* buckets, particle_t* p, float h)
 void hash_particles(sim_state_t* s, float h)
 {
     /* BEGIN TASK */
-    memset(s->hash, 0, HASH_SIZE * sizeof(particle_t*) );
+    memset(s->hash, 0, HASH_SIZE * sizeof(particle_t*));
 
     for (int i = 0; i < s->n; ++i) {
         particle_t* p = &s->part[i];

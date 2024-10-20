@@ -63,18 +63,28 @@ void compute_density(sim_state_t* s, sim_param_t* params)
     for (int i = 0; i < n; ++i) {
         particle_t* pi = s->part + i;
         unsigned neighborhood[MAX_NBR_BINS];
-        unsigned num_bins = particle_neighborhood(neighborhood, pi, h);
+        unsigned num_buckets = particle_neighborhood(neighborhood, pi, h);
         pi->rho += (315.0 / 64.0 / M_PI) * s->mass / h3;
 
-        for (unsigned b = 0; b < num_bins; ++b) {
-            unsigned bucket_idx = neighborhood[b];
-            particle_t* pj = hash[bucket_idx];
+        // Update for particles in own bucket
+        particle_t* pb = pi->next;
+        while (pb != NULL) {
+            update_density(pi, pb, h2, C);
+            pb = pb->next;
+        }
 
-            while (pj != NULL) {
-                if (pj != pi) {
+        // Update for particles in buckets with lower index
+        unsigned own_bucket = particle_bucket(pi, h);
+
+        for (unsigned b = 0; b < num_buckets; ++b) {
+            unsigned bucket = neighborhood[b];
+            if (bucket != own_bucket && bucket < own_bucket) {
+                particle_t* pj = hash[bucket];
+
+                while (pj != NULL) {
                     update_density(pi, pj, h2, C);
+                    pj = pj->next;
                 }
-                pj = pj->next;
             }
         }
     }
@@ -172,17 +182,26 @@ void compute_accel(sim_state_t* state, sim_param_t* params)
     for (int i = 0; i < n; ++i) {
         particle_t* pi = p + i;
         unsigned neighborhood[MAX_NBR_BINS];
-        unsigned num_bins = particle_neighborhood(neighborhood, pi, h);
+        unsigned num_buckets = particle_neighborhood(neighborhood, pi, h);
+        unsigned own_bucket = particle_bucket(pi, h);
 
-        for (unsigned b = 0; b < num_bins; ++b) {
-            unsigned bucket_idx = neighborhood[b];
-            particle_t* pj = hash[bucket_idx];
+        // Update for particles in own bucket
+        particle_t* pb = pi->next;
+        while (pb != NULL) {
+            update_forces(pi, pb, h2, rho0, C0, Cp, Cv);
+            pb = pb->next;
+        }
 
-            while (pj != NULL) {
-                if (pj != pi) {
+        // Update for particles in buckets with lower index
+        for (unsigned b = 0; b < num_buckets; ++b) {
+            unsigned bucket = neighborhood[b];
+            if (bucket != own_bucket && bucket < own_bucket) {
+                particle_t* pj = hash[bucket];
+
+                while (pj != NULL) {
                     update_forces(pi, pj, h2, rho0, C0, Cp, Cv);
+                    pj = pj->next;
                 }
-                pj = pj->next;
             }
         }
     }

@@ -76,7 +76,6 @@ sim_state_t* place_particles(sim_param_t* param,
                 if (indicatef(x,y,z)) {
                     vec3_set(s->part[p].x, x, y, z);
                     vec3_set(s->part[p].v, 0, 0, 0);
-                    omp_init_lock(&(s->part[p].lock));
                     ++p;
                 }
             }

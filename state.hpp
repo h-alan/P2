@@ -20,7 +20,6 @@ typedef struct particle_t {
     float v[3];        /* Particle velocities (full step) */
     float vh[3];       /* Particle velocities (half step) */
     float a[3];        /* Particle accelerations */
-    omp_lock_t lock;   /* Lock per particle */
     struct particle_t *next; /* List link for spatial hashing */
 } particle_t;
 
